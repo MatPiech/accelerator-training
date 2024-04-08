@@ -9,19 +9,14 @@ import evaluate
 from tqdm import tqdm
 
 
-def get_data_loaders():
-    batch_size = 64
-
-    norm_mean = 0.5
-    norm_std = 0.5
-
+def get_data_loaders(batch_size: int = 64, norm_mean: tuple[float] = (0.5,), norm_std: tuple[float]  = (0.5,)):
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize((norm_mean, ), (norm_std, ))
+        torchvision.transforms.Normalize(norm_mean, norm_std)
     ])
 
-    trainset = torchvision.datasets.CIFAR10(root='./cifar10', train=True, download=True, transform=transform)
-    testset = torchvision.datasets.CIFAR10(root='./cifar10', train=False, download=True, transform=transform)
+    trainset = torchvision.datasets.CIFAR10(root='./data/cifar10', train=True, download=True, transform=transform)
+    testset = torchvision.datasets.CIFAR10(root='./data/cifar10', train=False, download=True, transform=transform)
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
     test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
@@ -35,27 +30,30 @@ def get_pred(logits):
 
 
 def output_label(label):
-    output_mapping = {0: 'plane', 1: 'car', 2: 'bird', 3: 'cat', 4: 'deer', 5: 'dog', 6: 'frog', 7: 'horse', 8: 'ship', 9: 'truck'}
+    cifar10_mapping = {0: 'plane', 1: 'car', 2: 'bird', 3: 'cat', 4: 'deer', 5: 'dog', 6: 'frog', 7: 'horse', 8: 'ship', 9: 'truck'}
     input = (label.item() if type(label) == torch.Tensor else label)
-    return output_mapping[input]
+    return cifar10_mapping[input]
 
 
 def online_training():
+    print('Creating dataloaders...')
     train_loader, test_loader = get_data_loaders()
 
     # artifacts path
     artifacts_path = Path('./artifacts')
 
-    # Create checkpoint state.
+    print('Loading artifacts...')
+    # Create checkpoint state
     state = CheckpointState.load_checkpoint(artifacts_path / 'checkpoint')
 
-    # Create module.
-    model = Module(artifacts_path / 'training_model.onnx', state, artifacts_path / 'eval_model.onnx', device='cpu')
+    # Create module
+    model = Module(artifacts_path / 'training_model.onnx', state, artifacts_path / 'eval_model.onnx', device='cuda')
 
-    # Create optimizer.
+    # Create optimizer
     optimizer = Optimizer(artifacts_path / 'optimizer_model.onnx', model)
 
     epochs = 5
+    print(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
         print(f'Epoch: {epoch+1} / {epochs}')
         # Training Loop
