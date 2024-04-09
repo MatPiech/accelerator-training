@@ -10,6 +10,9 @@ References:
 
 ## Jetson Orin Nano
 
+- JetPack: 6.0
+- CUDA: 12.2.12
+
 ONNX Runtime build command:
 
 ```shell
@@ -24,5 +27,7 @@ References:
 
 ## Jetson Nano
 
+- JetPack: 4.6.1
+- CUDA: 10.2
 
 ## Hailo-8 AI Accelerator
