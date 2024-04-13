@@ -1,27 +1,13 @@
+from multiprocessing import Process
 from pathlib import Path
 
 import click
 import numpy as np
-import torch
-import torchvision
 from onnxruntime import InferenceSession
 from onnxruntime.training.api import CheckpointState, Module, Optimizer
 from tqdm import tqdm
 
-
-def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] = (0.5,), norm_std: tuple[float]  = (0.5,)):
-    transform = torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize(norm_mean, norm_std)
-    ])
-
-    trainset = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
-    testset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
-
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
-
-    return train_loader, test_loader
+from utils import log_jetson_stats, get_data_loaders, output_label, get_pred
 
 
 def get_accuracy(logit, target, batch_size):
@@ -31,23 +17,16 @@ def get_accuracy(logit, target, batch_size):
     return accuracy.item()
 
 
-# Util function to convert logits to predictions.
-def get_pred(logits):
-    return np.argmax(logits, axis=1)
-
-
-def output_label(label):
-    cifar10_mapping = {0: 'plane', 1: 'car', 2: 'bird', 3: 'cat', 4: 'deer', 5: 'dog', 6: 'frog', 7: 'horse', 8: 'ship', 9: 'truck'}
-    input = (label.item() if type(label) == torch.Tensor else label)
-    return cifar10_mapping[input]
-
-
 @click.command()
-@click.option('--model-path', type=click.Path(exists=True, file_okay=True), required=True)
-@click.option('--data-path', type=click.Path(exists=True), required=True)
+@click.option('--model-path', type=click.Path(exists=True, path_type=Path), required=True)
+@click.option('--data-path', type=click.Path(exists=True, path_type=Path), required=True)
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cpu')
+@click.option('--epochs', type=int, default=5)
 @click.option('--batch-size', type=int, default=64)
-def training(model_path: Path, data_path: Path, device: str, batch_size: int):
+def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int):
+    platform_stats_process = Process(target=log_jetson_stats, args=('onnxruntime', model_path.name, data_path.name, device,))
+    platform_stats_process.start()
+
     print('Creating dataloaders...')
     train_loader, test_loader = get_data_loaders(data_path, batch_size)
 
@@ -65,7 +44,6 @@ def training(model_path: Path, data_path: Path, device: str, batch_size: int):
     # Create optimizer
     optimizer = Optimizer(artifacts_path / 'optimizer_model.onnx', model)
 
-    epochs = 5
     print(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
         print(f'Epoch: {epoch+1} / {epochs}')
@@ -96,7 +74,11 @@ def training(model_path: Path, data_path: Path, device: str, batch_size: int):
         print(f'Epoch: {epoch} |',
           f' Loss: {sum(train_losses) / len(train_losses):.4f} | Train Accuracy: {sum(train_acc) / len(train_acc):.2f} |',
           f' Test loss: {sum(test_losses) / len(test_losses):.4f} | Test Accuracy: {sum(test_acc) / len(test_acc):.2f}')
+        
+    print('Terminating platform stats logger...')
+    platform_stats_process.terminate()
 
+    print('Inferencing trained model...')
     model.export_model_for_inferencing(artifacts_path / 'inference_model.onnx', ['output'])
     session = InferenceSession(artifacts_path / 'inference_model.onnx', providers=['CPUExecutionProvider'])
 
@@ -110,8 +92,8 @@ def training(model_path: Path, data_path: Path, device: str, batch_size: int):
     output_name = session.get_outputs()[0].name 
     output = session.run([output_name], {input_name: data.numpy()[np.newaxis]})
 
-    print('Predicted Label : ', output_label(get_pred(output[0])[0]))
-    print('GT label: ', output_label(label))
+    print('Predicted Label : ', output_label(get_pred(output[0])[0], data_path.name))
+    print('GT label: ', output_label(label, data_path.name))
 
 
 if __name__ == '__main__':
