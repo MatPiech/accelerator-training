@@ -210,3 +210,7 @@ data/
 
 # artifacts folder
 artifacts/
+
+# NN models
+*.pth
+*.onnx
