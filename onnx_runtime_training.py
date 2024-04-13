@@ -5,11 +5,10 @@ from onnxruntime import InferenceSession
 import numpy as np
 import torch
 import torchvision
-import evaluate
 from tqdm import tqdm
 
 
-def get_data_loaders(batch_size: int = 64, norm_mean: tuple[float] = (0.5,), norm_std: tuple[float]  = (0.5,)):
+def get_data_loaders(batch_size: int, norm_mean: tuple[float] = (0.5,), norm_std: tuple[float]  = (0.5,)):
     transform = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize(norm_mean, norm_std)
@@ -24,6 +23,13 @@ def get_data_loaders(batch_size: int = 64, norm_mean: tuple[float] = (0.5,), nor
     return train_loader, test_loader
 
 
+def get_accuracy(logit, target, batch_size):
+    ''' Obtain accuracy for training round '''
+    corrects = (get_pred(logit) == target.numpy()).sum()
+    accuracy = corrects / batch_size
+    return accuracy.item()
+
+
 # Util function to convert logits to predictions.
 def get_pred(logits):
     return np.argmax(logits, axis=1)
@@ -35,9 +41,10 @@ def output_label(label):
     return cifar10_mapping[input]
 
 
-def online_training():
+def training():
     print('Creating dataloaders...')
-    train_loader, test_loader = get_data_loaders()
+    batch_size = 64
+    train_loader, test_loader = get_data_loaders(batch_size)
 
     # artifacts path
     artifacts_path = Path('./artifacts')
@@ -47,7 +54,8 @@ def online_training():
     state = CheckpointState.load_checkpoint(artifacts_path / 'checkpoint')
 
     # Create module
-    model = Module(artifacts_path / 'training_model.onnx', state, artifacts_path / 'eval_model.onnx', device='cuda')
+    device = 'cuda'
+    model = Module(artifacts_path / 'training_model.onnx', state, artifacts_path / 'eval_model.onnx', device=device)
 
     # Create optimizer
     optimizer = Optimizer(artifacts_path / 'optimizer_model.onnx', model)
@@ -58,34 +66,36 @@ def online_training():
         print(f'Epoch: {epoch+1} / {epochs}')
         # Training Loop
         model.train()
-        losses = []
+        train_acc = []
+        train_losses = []
+
         for _, (data, target) in enumerate(tqdm(train_loader)):
             forward_inputs = [data.numpy(), target.numpy().astype(np.int64)]
-            train_loss, _ = model(*forward_inputs)
+            train_loss, logits = model(*forward_inputs)
+            train_acc.append(get_accuracy(logits, target, batch_size))
             optimizer.step()
             model.lazy_reset_grad()
-            losses.append(train_loss)
-
-        print(f'Epoch: {epoch+1}, Train Loss: {sum(losses)/len(losses):.4f}')
+            train_losses.append(train_loss)
         
         # Test Loop
         model.eval()
-        losses = []
-        metric = evaluate.load('accuracy')
+        test_acc = []
+        test_losses = []
 
         for _, (data, target) in enumerate(tqdm(test_loader)):
             forward_inputs = [data.numpy(), target.numpy().astype(np.int64)]
             test_loss, logits = model(*forward_inputs)
-            metric.add_batch(references=target, predictions=get_pred(logits))
-            losses.append(test_loss)
+            test_acc.append(get_accuracy(logits, target, batch_size))
+            test_losses.append(test_loss)
 
-        metrics = metric.compute()
-        print(f'Epoch: {epoch+1}, Test Loss: {sum(losses)/len(losses):.4f}, Accuracy : {metrics["accuracy"]:.2f}')
+        print(f'Epoch: {epoch} |',
+          f' Loss: {sum(train_losses) / len(train_losses):.4f} | Train Accuracy: {sum(train_acc) / len(train_acc):.2f} |',
+          f' Test loss: {sum(test_losses) / len(test_losses):.4f} | Test Accuracy: {sum(test_acc) / len(test_acc):.2f}')
 
     model.export_model_for_inferencing(artifacts_path / 'inference_model.onnx', ['output'])
     session = InferenceSession(artifacts_path / 'inference_model.onnx', providers=['CPUExecutionProvider'])
 
-    # getting one example from test list to try inference.
+    # Testing model with one example from test set
     data, label = next(iter(test_loader))
 
     idx = 0
@@ -100,4 +110,4 @@ def online_training():
 
 
 if __name__ == '__main__':
-    online_training()
+    training()
