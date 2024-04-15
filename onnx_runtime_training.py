@@ -1,5 +1,6 @@
 from multiprocessing import Process
 from pathlib import Path
+from time import perf_counter
 
 import click
 import numpy as np
@@ -43,10 +44,11 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
     # Create optimizer
     optimizer = Optimizer(artifacts_path / 'optimizer_model.onnx', model)
+    optimizer.set_learning_rate(0.001)
 
     print(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
-        print(f'Epoch: {epoch+1} / {epochs}')
+        epoch_start = perf_counter()
         # Training Loop
         model.train()
         train_acc = []
@@ -71,9 +73,13 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
             test_acc.append(get_accuracy(logits, target, batch_size))
             test_losses.append(test_loss)
 
-        print(f'Epoch: {epoch} |',
-          f' Loss: {sum(train_losses) / len(train_losses):.4f} | Train Accuracy: {sum(train_acc) / len(train_acc):.2f} |',
-          f' Test loss: {sum(test_losses) / len(test_losses):.4f} | Test Accuracy: {sum(test_acc) / len(test_acc):.2f}')
+        epoch_time = perf_counter() - epoch_start
+
+        print(
+            f'Epoch: {epoch} |',
+            f' Loss: {sum(train_losses) / len(train_losses):.4f} | Train Accuracy: {sum(train_acc) / len(train_acc):.2f} |',
+            f' Test loss: {sum(test_losses) / len(test_losses):.4f} | Test Accuracy: {sum(test_acc) / len(test_acc):.2f} |',
+            f' Epoch time: {epoch_time:.2f}s')
         
     print('Terminating platform stats logger...')
     platform_stats_process.terminate()

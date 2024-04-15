@@ -1,5 +1,6 @@
 from multiprocessing import Process
 from pathlib import Path
+from time import perf_counter
 
 import click
 import torch
@@ -40,11 +41,12 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
     print('Setting criterion...')
     criterion = torch.nn.CrossEntropyLoss()
 
-    print('Creating optimizer..')
+    print('Creating optimizer...')
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
 
     print(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
+        epoch_start = perf_counter()
         model = model.train()
 
         train_running_loss = 0.0
@@ -67,7 +69,7 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
             optimizer.step()
 
             train_running_loss += loss.detach().item()
-            train_acc += get_accuracy(logits, labels, 32)
+            train_acc += get_accuracy(logits, labels, batch_size)
 
         model.eval()
 
@@ -83,11 +85,15 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
                 loss = criterion(logits, labels)
 
                 test_running_loss += loss.detach().item()
-                test_acc += get_accuracy(logits, labels, 32)
+                test_acc += get_accuracy(logits, labels, batch_size)
 
-        print(f'Epoch: {epoch} |',
+        epoch_time = perf_counter() - epoch_start
+
+        print(
+            f'Epoch: {epoch} |',
             f' Loss: {train_running_loss/i:.4f} | Train Accuracy: {train_acc/i:.2f} |',
-            f' Test loss: {test_running_loss/k:.4f} | Test Accuracy: {test_acc/k:.2f}')
+            f' Test loss: {test_running_loss/k:.4f} | Test Accuracy: {test_acc/k:.2f} |',
+            f' Epoch time: {epoch_time:.2f}s')
 
     print('Terminating platform stats logger...')
     platform_stats_process.terminate()
