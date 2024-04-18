@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import torchvision
-from jtop import jtop
 
 
 LABELS_MAPPING = {
@@ -42,21 +41,27 @@ def output_label(label, dataset_name: str) -> str:
 
 
 def log_jetson_stats(framework: str, model_name: str, dataset_name: str, device: str):
-    log_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    stats_log_filename = f'{framework}_{model_name}_{dataset_name}_{device}_{log_time}_log.csv'
-    print(f'Start logging platform stats to {stats_log_filename}...')
+    try:
+        from jtop import jtop
 
-    with jtop() as jetson:
-        with open(stats_log_filename, 'w') as csvfile:
-            stats = jetson.stats
-            # Initialize cws writer
-            writer = csv.DictWriter(csvfile, fieldnames=stats.keys())
-            # Write header
-            writer.writeheader()
-            # Write first row
-            writer.writerow(stats)
-            # Start loop
-            while jetson.ok():
+        log_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+        stats_log_filename = f'{framework}_{model_name}_{dataset_name}_{device}_{log_time}_log.csv'
+        print(f'Start logging platform stats to {stats_log_filename}...')
+
+        with jtop() as jetson:
+            with open(stats_log_filename, 'w') as csvfile:
                 stats = jetson.stats
-                # Write row
+                # Initialize cws writer
+                writer = csv.DictWriter(csvfile, fieldnames=stats.keys())
+                # Write header
+                writer.writeheader()
+                # Write first row
                 writer.writerow(stats)
+                # Start loop
+                while jetson.ok():
+                    stats = jetson.stats
+                    # Write row
+                    writer.writerow(stats)
+    except ModuleNotFoundError:
+        # Error handling
+        print('jtop module unavailable. Platform measurements will not be provided.')
