@@ -43,6 +43,7 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
     print('Creating optimizer...')
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
+    # optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
 
     print(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
@@ -90,7 +91,7 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
         epoch_time = perf_counter() - epoch_start
 
         print(
-            f'Epoch: {epoch} |',
+            f'Epoch: {epoch+1} |',
             f' Loss: {train_running_loss/i:.4f} | Train Accuracy: {train_acc/i:.2f} |',
             f' Test loss: {test_running_loss/k:.4f} | Test Accuracy: {test_acc/k:.2f} |',
             f' Epoch time: {epoch_time:.2f}s')

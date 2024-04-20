@@ -76,7 +76,7 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
         epoch_time = perf_counter() - epoch_start
 
         print(
-            f'Epoch: {epoch} |',
+            f'Epoch: {epoch+1} |',
             f' Loss: {sum(train_losses) / len(train_losses):.4f} | Train Accuracy: {sum(train_acc) / len(train_acc):.2f} |',
             f' Test loss: {sum(test_losses) / len(test_losses):.4f} | Test Accuracy: {sum(test_acc) / len(test_acc):.2f} |',
             f' Epoch time: {epoch_time:.2f}s')
