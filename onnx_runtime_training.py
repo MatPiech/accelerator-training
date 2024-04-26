@@ -3,6 +3,7 @@ from pathlib import Path
 from time import perf_counter
 
 import click
+import onnx
 import numpy as np
 from onnxruntime import InferenceSession
 from onnxruntime.training.api import CheckpointState, Module, Optimizer
@@ -21,12 +22,14 @@ def get_accuracy(logit, target, batch_size):
 @click.command()
 @click.option('--model-path', type=click.Path(exists=True, path_type=Path), required=True)
 @click.option('--data-path', type=click.Path(exists=True, path_type=Path), required=True)
-@click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cpu')
+@click.option('--device', type=click.Choice(['cpu', 'cuda', 'hailo']), default='cpu')
 @click.option('--epochs', type=int, default=5)
 @click.option('--batch-size', type=int, default=64)
-def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int):
-    platform_stats_process = Process(target=log_jetson_stats, args=('onnxruntime', model_path.name, data_path.name, device,))
-    platform_stats_process.start()
+@click.option("--profile", is_flag=True)
+def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int, profile: bool):
+    if profile:
+        platform_stats_process = Process(target=log_jetson_stats, args=('onnxruntime', model_path.name, data_path.name, device,))
+        platform_stats_process.start()
 
     print('Creating dataloaders...')
     train_loader, test_loader = get_data_loaders(data_path, batch_size)
@@ -40,7 +43,12 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
     # Create module
     print(f'Creating model with {device} device...')
-    model = Module(artifacts_path / 'training_model.onnx', state, artifacts_path / 'eval_model.onnx', device=device)
+    model = Module(
+        artifacts_path / 'training_model.onnx',
+        state,
+        artifacts_path / 'eval_model.onnx',
+        device=device,
+    )
 
     # Create optimizer
     optimizer = Optimizer(artifacts_path / 'optimizer_model.onnx', model)
@@ -80,13 +88,24 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
             f' Loss: {sum(train_losses) / len(train_losses):.4f} | Train Accuracy: {sum(train_acc) / len(train_acc):.2f} |',
             f' Test loss: {sum(test_losses) / len(test_losses):.4f} | Test Accuracy: {sum(test_acc) / len(test_acc):.2f} |',
             f' Epoch time: {epoch_time:.2f}s')
-        
-    print('Terminating platform stats logger...')
-    platform_stats_process.terminate()
+
+    if profile:
+        print('Terminating platform stats logger...')
+        platform_stats_process.terminate()
+
+    print('Exporting trained model for inference...')
+    m_ = onnx.load_model(artifacts_path / 'eval_model.onnx')
+    output_names = [o_.name for o_ in m_.graph.output]
+    model.export_model_for_inferencing(artifacts_path / 'inference_model.onnx', output_names[1:])
 
     print('Inferencing trained model...')
-    model.export_model_for_inferencing(artifacts_path / 'inference_model.onnx', ['output'])
-    session = InferenceSession(artifacts_path / 'inference_model.onnx', providers=['CPUExecutionProvider'])
+    if device == 'hailo':
+        ep = ['HailoExecutionProvider']
+    elif device == 'cuda':
+        ep = ['CUDAExecutionProvider']
+    else:
+        ep = ['CPUExecutionProvider']
+    session = InferenceSession(artifacts_path / 'inference_model.onnx', providers=ep)
 
     # Testing model with one example from test set
     data, label = next(iter(test_loader))
