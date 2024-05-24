@@ -8,6 +8,7 @@ import torchvision
 
 
 LABELS_MAPPING = {
+    'mnist': {number: f'{number}' for number in range(10)},
     'cifar10': {0: 'plane', 1: 'car', 2: 'bird', 3: 'cat', 4: 'deer', 5: 'dog', 6: 'frog', 7: 'horse', 8: 'ship', 9: 'truck'},
 }
 
@@ -18,7 +19,10 @@ def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] =
         torchvision.transforms.Normalize(norm_mean, norm_std)
     ])
 
-    if data_path.name == 'cifar10':
+    if data_path.name == 'mnist':
+        trainset = torchvision.datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
+        testset = torchvision.datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
+    elif data_path.name == 'cifar10':
         trainset = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
         testset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
     else:
