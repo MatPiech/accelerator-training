@@ -12,9 +12,20 @@ LABELS_MAPPING = {
     'cifar10': {0: 'plane', 1: 'car', 2: 'bird', 3: 'cat', 4: 'deer', 5: 'dog', 6: 'frog', 7: 'horse', 8: 'ship', 9: 'truck'},
 }
 
+SHAPE_MAPPING = {
+    'mnist': (28, 28),
+    'cifar10': (32, 32),
+}
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] = (0.5,), norm_std: tuple[float]  = (0.5,)):
+    input_shape = 128, 128 #SHAPE_MAPPING[data_path.name]
+
     transform = torchvision.transforms.Compose([
+        torchvision.transforms.Resize(input_shape),
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize(norm_mean, norm_std)
     ])

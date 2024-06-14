@@ -26,7 +26,8 @@ def get_accuracy(logit, target, batch_size):
 @click.option('--epochs', type=int, default=5)
 @click.option('--batch-size', type=int, default=64)
 @click.option("--profile", is_flag=True)
-def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int, profile: bool):
+@click.option("--evaluate", is_flag=True)
+def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int, profile: bool, evaluate: bool):
     if profile:
         platform_stats_process = Process(target=log_jetson_stats, args=('onnxruntime', model_path.name, data_path.name, device,))
         platform_stats_process.start()
@@ -53,6 +54,8 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
     # Create optimizer
     optimizer = Optimizer(artifacts_path / 'optimizer_model.onnx', model)
     optimizer.set_learning_rate(0.001)
+
+    training_time = 0.
 
     print(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
@@ -82,6 +85,7 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
             test_losses.append(test_loss)
 
         epoch_time = perf_counter() - epoch_start
+        training_time += epoch_time
 
         print(
             f'Epoch: {epoch+1} |',
@@ -93,32 +97,35 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
         print('Terminating platform stats logger...')
         platform_stats_process.terminate()
 
-    print('Exporting trained model for inference...')
-    m_ = onnx.load_model(artifacts_path / 'eval_model.onnx')
-    output_names = [o_.name for o_ in m_.graph.output]
-    model.export_model_for_inferencing(artifacts_path / 'inference_model.onnx', output_names[1:])
+    print(f'Training completed in {training_time:.2f}s\nAverage time per epoch: {training_time / epochs:.2f}s')
 
-    print('Inferencing trained model...')
-    if device == 'hailo':
-        ep = ['HailoExecutionProvider']
-    elif device == 'cuda':
-        ep = ['CUDAExecutionProvider']
-    else:
-        ep = ['CPUExecutionProvider']
-    session = InferenceSession(artifacts_path / 'inference_model.onnx', providers=ep)
+    if evaluate:
+        print('Exporting trained model for inference...')
+        m_ = onnx.load_model(artifacts_path / 'eval_model.onnx')
+        output_names = [o_.name for o_ in m_.graph.output]
+        model.export_model_for_inferencing(artifacts_path / 'inference_model.onnx', output_names[1:])
 
-    # Testing model with one example from test set
-    data, label = next(iter(test_loader))
+        print('Inferencing trained model...')
+        if device == 'hailo':
+            ep = ['HailoExecutionProvider']
+        elif device == 'cuda':
+            ep = ['CUDAExecutionProvider']
+        else:
+            ep = ['CPUExecutionProvider']
+        session = InferenceSession(artifacts_path / 'inference_model.onnx', providers=ep)
 
-    idx = 0
-    data, label = data[idx], label.numpy()[idx]
+        # Testing model with one example from test set
+        data, label = next(iter(test_loader))
 
-    input_name = session.get_inputs()[0].name
-    output_name = session.get_outputs()[0].name 
-    output = session.run([output_name], {input_name: data.numpy()[np.newaxis]})
+        idx = 0
+        data, label = data[idx], label.numpy()[idx]
 
-    print('Predicted Label : ', output_label(get_pred(output[0])[0], data_path.name))
-    print('GT label: ', output_label(label, data_path.name))
+        input_name = session.get_inputs()[0].name
+        output_name = session.get_outputs()[0].name 
+        output = session.run([output_name], {input_name: data.numpy()[np.newaxis]})
+
+        print('Predicted Label : ', output_label(get_pred(output[0])[0], data_path.name))
+        print('GT label: ', output_label(label, data_path.name))
 
 
 if __name__ == '__main__':
