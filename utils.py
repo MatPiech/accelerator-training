@@ -39,8 +39,8 @@ def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] =
     else:
         raise NotImplementedError(f'Dataset {data_path.name} is not supported!')
 
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=2)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=2)
 
     return train_loader, test_loader
 
