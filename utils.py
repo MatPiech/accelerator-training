@@ -33,9 +33,24 @@ def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] =
     if data_path.name == 'mnist':
         trainset = torchvision.datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
         testset = torchvision.datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
+    elif data_path.name == 'cars':
+        trainset = torchvision.datasets.StanfordCars(root=data_path, train=True, download=True, transform=transform)
+        testset = torchvision.datasets.StanfordCars(root=data_path, train=False, download=True, transform=transform)
     elif data_path.name == 'cifar10':
         trainset = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
         testset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
+    elif data_path.name == 'cifar100':
+        trainset = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
+        testset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
+    elif data_path.name == 'flowers':
+        trainset = torchvision.datasets.Flowers102(root=data_path, train=True, download=True, transform=transform)
+        testset = torchvision.datasets.Flowers102(root=data_path, train=False, download=True, transform=transform)
+    elif data_path.name == 'food':
+        trainset = torchvision.datasets.Food101(root=data_path, train=True, download=True, transform=transform)
+        testset = torchvision.datasets.Food101(root=data_path, train=False, download=True, transform=transform)
+    elif data_path.name == 'pets':
+        trainset = torchvision.datasets.OxfordIIITPet(root=data_path, train=True, download=True, transform=transform)
+        testset = torchvision.datasets.OxfordIIITPet(root=data_path, train=False, download=True, transform=transform)
     else:
         raise NotImplementedError(f'Dataset {data_path.name} is not supported!')
 
