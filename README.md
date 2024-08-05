@@ -20,7 +20,7 @@ To simplify project reproduction, Python wheels for utilized libraries were crea
 #### Build command:
 
 ```shell
-./build.sh --config RelWithDebInfo --update --build --build_shared_lib --parallel --enable_training --build_wheel --use_cuda --cuda_home /usr/local/cuda --cuda_version=12.2 --cudnn_home /usr/lib/aarch64-linux-gnu --compile_no_warning_as_error
+./build.sh --config RelWithDebInfo --update --build --build_shared_lib --parallel --enable_training --build_wheel --use_cuda --cuda_home /usr/local/cuda --cuda_version=12.2 --cudnn_home /usr/lib/aarch64-linux-gnu
 ```
 
 #### References:
@@ -37,6 +37,7 @@ Python PyTorch v2.2.0 wheel for JetPack 6.0 with Python 3.10 was installed from 
 ## Hailo-8 AI Accelerator
 
 - Hailo-8
+- HailoRT: 4.16.0
 - Python 3.10.6
 
 ### ONNX Runtime
@@ -47,7 +48,7 @@ Python PyTorch v2.2.0 wheel for JetPack 6.0 with Python 3.10 was installed from 
 #### Build command:
 
 ```shell
-./build.sh --config RelWithDebInfo --update --build --build_shared_lib --parallel --enable_training --build_wheel --use_hailo --compile_no_warning_as_error
+./build.sh --config RelWithDebInfo --update --build --build_shared_lib --parallel --enable_training --build_wheel --use_hailo --skip_tests --enable_pybind
 ```
 
 #### References:
