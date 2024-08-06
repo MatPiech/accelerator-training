@@ -208,6 +208,9 @@ pyrightconfig.json
 # datasets folder
 data/
 
+# calibration dataset
+notebooks/calib_set.npy
+
 # artifacts folder
 artifacts/
 

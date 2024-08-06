@@ -21,7 +21,7 @@ def get_corrects(logit, target):
 
 @click.command()
 @click.option('--model-path', type=click.Path(exists=True, path_type=Path), required=True)
-@click.option('--data-path', type=click.Path(exists=True, path_type=Path), required=True)
+@click.option('--data-path', type=click.Path(path_type=Path), required=True)
 @click.option('--device', type=click.Choice(['cpu', 'cuda', 'hailo']), default='cpu')
 @click.option('--epochs', type=int, default=5)
 @click.option('--batch-size', type=int, default=8)
