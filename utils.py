@@ -46,7 +46,7 @@ def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] =
         raise NotImplementedError(f'Dataset {data_path.name} is not supported!')
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=2)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=2)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, drop_last=False, num_workers=2)
 
     return train_loader, test_loader
 
@@ -59,30 +59,3 @@ def get_pred(logits):
 def output_label(label, dataset_name: str) -> str:
     input = (label.item() if type(label) == torch.Tensor else label)
     return LABELS_MAPPING[dataset_name][input]
-
-
-def log_jetson_stats(framework: str, model_name: str, dataset_name: str, device: str):
-    try:
-        from jtop import jtop
-
-        log_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-        stats_log_filename = f'{framework}_{model_name}_{dataset_name}_{device}_{log_time}_log.csv'
-        print(f'Start logging platform stats to {stats_log_filename}...')
-
-        with jtop() as jetson:
-            with open(stats_log_filename, 'w') as csvfile:
-                stats = jetson.stats
-                # Initialize cws writer
-                writer = csv.DictWriter(csvfile, fieldnames=stats.keys())
-                # Write header
-                writer.writeheader()
-                # Write first row
-                writer.writerow(stats)
-                # Start loop
-                while jetson.ok():
-                    stats = jetson.stats
-                    # Write row
-                    writer.writerow(stats)
-    except ModuleNotFoundError:
-        # Error handling
-        print('jtop module unavailable. Platform measurements will not be provided.')
