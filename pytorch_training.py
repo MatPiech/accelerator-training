@@ -1,3 +1,4 @@
+import logging
 from multiprocessing import Process
 from pathlib import Path
 from time import perf_counter
@@ -7,7 +8,12 @@ import torch
 from torch import manual_seed
 from tqdm import tqdm
 
-from utils import log_jetson_stats, get_data_loaders, output_label, get_pred, count_parameters
+from utils import get_data_loaders, output_label, get_pred, count_parameters
+
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+logging.getLogger('PIL').setLevel(logging.WARNING)
 
 
 def get_corrects(logit, target):
@@ -22,19 +28,17 @@ def get_corrects(logit, target):
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cpu')
 @click.option('--epochs', type=int, default=5)
 @click.option('--batch-size', type=int, default=8)
-@click.option("--profile", is_flag=True)
 @click.option("--evaluate", is_flag=True)
 @click.option('--seed', type=int, default=42)
-def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int, profile: bool, evaluate: bool, seed: int):
+def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int, evaluate: bool, seed: int):
     manual_seed(seed)
-    if profile:
-        platform_stats_process = Process(target=log_jetson_stats, args=('onnxruntime', model_path.name, data_path.name, device,))
-        platform_stats_process.start()
 
-    print('Creating dataloaders...')
+    logger.info('Creating dataloaders...')
     train_loader, test_loader = get_data_loaders(data_path, batch_size)
+    train_len = train_loader.__len__() * batch_size
+    test_len = test_loader.__len__()
 
-    print(f'Creating model with {device} device...')
+    logger.info(f'Creating model with {device} device...')
     model = torch.load(model_path)
     if device == 'cuda':
         device = torch.device('cuda')
@@ -43,19 +47,19 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
         device = torch.device('cpu')
     model = model.to(device)
 
-    print(f'Model trainable parameters: {count_parameters(model)}')
+    logger.info(f'Model trainable parameters: {count_parameters(model)}')
 
-    print('Setting criterion...')
+    logger.info('Setting criterion...')
     criterion = torch.nn.CrossEntropyLoss()
 
-    print('Creating optimizer...')
+    logger.info('Creating optimizer...')
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
     # optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
 
     training_time = 0.
     evaluate_time = 0.
 
-    print(f'Starting training loop for {epochs} epochs...')
+    logger.info(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
         train_running_loss = 0.0
         test_running_loss = 0.0
@@ -104,25 +108,22 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
         evaluate_time += eval_time
         epoch_time = train_time + eval_time
 
-        train_acc = sum(train_corrects) / 50000
-        test_acc = sum(test_corrects) / 10000
+        train_acc = sum(train_corrects) / train_len
+        test_acc = sum(test_corrects) / test_len
 
-        print(
+        logger.info(' '.join([
             f'Epoch: {epoch+1} |',
             f' Loss: {train_running_loss/i:.4f} | Train Accuracy: {train_acc:.4f} |',
             f' Test loss: {test_running_loss/k:.4f} | Test Accuracy: {test_acc:.4f} |',
-            f' Epoch time: {epoch_time:.2f}s')
+            f' Epoch time: {epoch_time:.2f}s'
+        ]))
 
-    if profile:
-        print('Terminating platform stats logger...')
-        platform_stats_process.terminate()
-
-    print(f'Training completed in {training_time+evaluate_time:.2f}s')
-    print(f'Average training time per epoch: {training_time / epochs:.2f}s')
-    print(f'Average eval time per epoch: {evaluate_time / epochs:.2f}s')
+    logger.info(f'Training completed in {training_time+evaluate_time:.4f}s')
+    logger.info(f'Average training time per epoch: {training_time / epochs:.4f}s')
+    logger.info(f'Average eval time per epoch: {evaluate_time / epochs:.4f}s')
 
     if evaluate:
-        print('Inferencing trained model...')
+        logger.info('Inferencing trained model...')
         # Testing model with one example from test set
         data, label = next(iter(test_loader))
 
@@ -131,8 +132,8 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
         output = model(data.unsqueeze(0).to(device))
 
-        print('Predicted Label : ', output_label(get_pred(output.cpu().detach().numpy())[0], data_path.name))
-        print('GT label: ', output_label(label, data_path.name))
+        logger.info('Predicted Label : ', output_label(get_pred(output.cpu().detach().numpy())[0], data_path.name))
+        logger.info('GT label: ', output_label(label, data_path.name))
 
 
 if __name__ == '__main__':

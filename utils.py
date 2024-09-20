@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torchvision
+from torchvision.transforms import v2
 
 
 LABELS_MAPPING = {
@@ -19,11 +20,12 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] = (0.5,), norm_std: tuple[float] = (0.5,), input_shape: tuple[int] = (128, 128)):
-    transform = torchvision.transforms.Compose([
-        torchvision.transforms.Resize(input_shape),
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize(norm_mean, norm_std)
+def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] = (0.485, 0.456, 0.406), norm_std: tuple[float] = (0.229, 0.224, 0.225), input_shape: tuple[int] = (128, 128)):
+    transform = v2.Compose([
+        v2.ToImage(),
+        v2.Resize(input_shape, antialias=True),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.Normalize(mean=norm_mean, std=norm_std)
     ])
 
     if data_path.name == 'cifar10':
@@ -45,8 +47,8 @@ def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] =
     else:
         raise NotImplementedError(f'Dataset {data_path.name} is not supported!')
 
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=2)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, drop_last=False, num_workers=2)
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=4)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=False, drop_last=False, num_workers=4)
 
     return train_loader, test_loader
 
@@ -59,30 +61,3 @@ def get_pred(logits):
 def output_label(label, dataset_name: str) -> str:
     input = (label.item() if type(label) == torch.Tensor else label)
     return LABELS_MAPPING[dataset_name][input]
-
-
-def log_jetson_stats(framework: str, model_name: str, dataset_name: str, device: str):
-    try:
-        from jtop import jtop
-
-        log_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-        stats_log_filename = f'{framework}_{model_name}_{dataset_name}_{device}_{log_time}_log.csv'
-        print(f'Start logging platform stats to {stats_log_filename}...')
-
-        with jtop() as jetson:
-            with open(stats_log_filename, 'w') as csvfile:
-                stats = jetson.stats
-                # Initialize cws writer
-                writer = csv.DictWriter(csvfile, fieldnames=stats.keys())
-                # Write header
-                writer.writeheader()
-                # Write first row
-                writer.writerow(stats)
-                # Start loop
-                while jetson.ok():
-                    stats = jetson.stats
-                    # Write row
-                    writer.writerow(stats)
-    except ModuleNotFoundError:
-        # Error handling
-        print('jtop module unavailable. Platform measurements will not be provided.')
