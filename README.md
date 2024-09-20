@@ -40,7 +40,7 @@ Python PyTorch v2.2.0 wheel for JetPack 6.0 with Python 3.10 was installed from 
 
 - Hailo-8
 - HailoRT: 4.16.0
-- Python 3.10.6
+- Python 3.10.14
 
 #### ONNX Runtime
 
@@ -56,6 +56,16 @@ Python PyTorch v2.2.0 wheel for JetPack 6.0 with Python 3.10 was installed from 
 ##### References:
 - [ONNX Runtime with Hailo provider for on-device training](https://github.com/MatPiech/onnxruntime)
 - [Hailo-8 Overview](https://hailo.ai/products/ai-accelerators/hailo-8-ai-accelerator/#hailo8-overview)
+
+## Model development
+
+### Installation steps
+1. hailort
+2. hailo dataflow compiler
+3. install repository `requirements.txt`
+4. uninstall onnxruntime installed with hailo dataflow compiler
+5. install onnxruntime-training
+6. install gcc=12.1.0 according to issue - ['GLIBCXX_3.4.30' not found for librosa in conda virtual environment (after trying out a lot of solutions)?](https://stackoverflow.com/a/72736003)
 
 
 ## Usage
