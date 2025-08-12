@@ -1,19 +1,25 @@
+import logging
 from multiprocessing import Process
 from pathlib import Path
 from time import perf_counter
 
 import click
 import torch
+from torch import manual_seed
 from tqdm import tqdm
 
-from utils import log_jetson_stats, get_data_loaders, output_label, get_pred
+from utils import get_data_loaders, output_label, get_pred, count_parameters
 
 
-def get_accuracy(logit, target, batch_size):
-    ''' Obtain accuracy for training round '''
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+logging.getLogger('PIL').setLevel(logging.WARNING)
+
+
+def get_corrects(logit, target):
+    ''' Obtain number of corrects predictions '''
     corrects = (torch.max(logit, 1)[1].view(target.size()).data == target.data).sum()
-    accuracy = corrects / batch_size
-    return accuracy.item()
+    return corrects
 
 
 @click.command()
@@ -21,15 +27,18 @@ def get_accuracy(logit, target, batch_size):
 @click.option('--data-path', type=click.Path(exists=True, path_type=Path), required=True)
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cpu')
 @click.option('--epochs', type=int, default=5)
-@click.option('--batch-size', type=int, default=64)
-def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int):
-    platform_stats_process = Process(target=log_jetson_stats, args=('pytorch', model_path.stem, data_path.name, device,))
-    platform_stats_process.start()
+@click.option('--batch-size', type=int, default=8)
+@click.option("--evaluate", is_flag=True)
+@click.option('--seed', type=int, default=42)
+def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int, evaluate: bool, seed: int):
+    manual_seed(seed)
 
-    print('Creating dataloaders...')
+    logger.info('Creating dataloaders...')
     train_loader, test_loader = get_data_loaders(data_path, batch_size)
+    train_len = train_loader.__len__() * batch_size
+    test_len = test_loader.__len__()
 
-    print(f'Creating model with {device} device...')
+    logger.info(f'Creating model with {device} device...')
     model = torch.load(model_path)
     if device == 'cuda':
         device = torch.device('cuda')
@@ -38,21 +47,28 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
         device = torch.device('cpu')
     model = model.to(device)
 
-    print('Setting criterion...')
+    logger.info(f'Model trainable parameters: {count_parameters(model)}')
+
+    logger.info('Setting criterion...')
     criterion = torch.nn.CrossEntropyLoss()
 
-    print('Creating optimizer...')
+    logger.info('Creating optimizer...')
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
     # optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
 
-    print(f'Starting training loop for {epochs} epochs...')
+    training_time = 0.
+    evaluate_time = 0.
+
+    logger.info(f'Starting training loop for {epochs} epochs...')
     for epoch in range(epochs):
-        epoch_start = perf_counter()
-        model = model.train()
-
         train_running_loss = 0.0
-        train_acc = 0.0
+        test_running_loss = 0.0
 
+        train_corrects = []
+        test_corrects = []
+
+        model = model.train()
+        train_start = perf_counter()
         ## training step
         for i, (images, labels) in enumerate(tqdm(train_loader)):
 
@@ -70,13 +86,13 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
             optimizer.step()
 
             train_running_loss += loss.detach().item()
-            train_acc += get_accuracy(logits, labels, batch_size)
+            train_corrects.append(get_corrects(logits, labels))
+
+        train_time = perf_counter() - train_start
+        training_time += train_time
 
         model.eval()
-
-        test_running_loss = 0.0
-        test_acc = 0.0
-
+        eval_start = perf_counter()
         with torch.no_grad():
             for k, (images, labels) in enumerate(tqdm(test_loader)):
                 images = images.to(device)
@@ -86,30 +102,38 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
                 loss = criterion(logits, labels)
 
                 test_running_loss += loss.detach().item()
-                test_acc += get_accuracy(logits, labels, batch_size)
+                test_corrects.append(get_corrects(logits, labels))
 
-        epoch_time = perf_counter() - epoch_start
+        eval_time = perf_counter() - eval_start
+        evaluate_time += eval_time
+        epoch_time = train_time + eval_time
 
-        print(
+        train_acc = sum(train_corrects) / train_len
+        test_acc = sum(test_corrects) / test_len
+
+        logger.info(' '.join([
             f'Epoch: {epoch+1} |',
-            f' Loss: {train_running_loss/i:.4f} | Train Accuracy: {train_acc/i:.2f} |',
-            f' Test loss: {test_running_loss/k:.4f} | Test Accuracy: {test_acc/k:.2f} |',
-            f' Epoch time: {epoch_time:.2f}s')
+            f' Loss: {train_running_loss/i:.4f} | Train Accuracy: {train_acc:.4f} |',
+            f' Test loss: {test_running_loss/k:.4f} | Test Accuracy: {test_acc:.4f} |',
+            f' Epoch time: {epoch_time:.2f}s'
+        ]))
 
-    print('Terminating platform stats logger...')
-    platform_stats_process.terminate()
+    logger.info(f'Training completed in {training_time+evaluate_time:.4f}s')
+    logger.info(f'Average training time per epoch: {training_time / epochs:.4f}s')
+    logger.info(f'Average eval time per epoch: {evaluate_time / epochs:.4f}s')
 
-    print('Inferencing trained model...')
-    # Testing model with one example from test set
-    data, label = next(iter(test_loader))
+    if evaluate:
+        logger.info('Inferencing trained model...')
+        # Testing model with one example from test set
+        data, label = next(iter(test_loader))
 
-    idx = 0
-    data, label = data[idx], label.numpy()[idx]
+        idx = 0
+        data, label = data[idx], label.numpy()[idx]
 
-    output = model(data.unsqueeze(0).to(device))
+        output = model(data.unsqueeze(0).to(device))
 
-    print('Predicted Label : ', output_label(get_pred(output.cpu().detach().numpy())[0], data_path.name))
-    print('GT label: ', output_label(label, data_path.name))
+        logger.info('Predicted Label : ', output_label(get_pred(output.cpu().detach().numpy())[0], data_path.name))
+        logger.info('GT label: ', output_label(label, data_path.name))
 
 
 if __name__ == '__main__':
