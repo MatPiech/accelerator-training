@@ -20,7 +20,7 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] = (0.485, 0.456, 0.406), norm_std: tuple[float] = (0.229, 0.224, 0.225), input_shape: tuple[int] = (128, 128)):
+def get_data_loaders(data_path: Path, batch_size: int, norm_mean: tuple[float] = (0.485, 0.456, 0.406), norm_std: tuple[float] = (0.229, 0.224, 0.225), input_shape: tuple[int] = (224, 224)):
     transform = v2.Compose([
         v2.ToImage(),
         v2.Resize(input_shape, antialias=True),
