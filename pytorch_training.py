@@ -1,5 +1,4 @@
 import logging
-from multiprocessing import Process
 from pathlib import Path
 from time import perf_counter
 
@@ -25,7 +24,7 @@ def get_corrects(logit, target):
 
 @click.command()
 @click.option('--model-path', type=click.Path(exists=True, path_type=Path), required=True)
-@click.option('--data-path', type=click.Path(exists=True, path_type=Path), required=True)
+@click.option('--data-path', type=click.Path(path_type=Path), required=True)
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cpu')
 @click.option('--epochs', type=int, default=1)
 @click.option('--batch-size', type=int, default=1)
@@ -69,6 +68,11 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
             train_corrects = []
 
             model = model.train()
+            for m in model.modules():
+                if isinstance(m, torch.nn.BatchNorm2d | torch.nn.LayerNorm | torch.nn.GroupNorm | torch.nn.InstanceNorm2d):
+                    m.eval()
+                    m.track_running_stats = False
+
             train_start = perf_counter()
             ## training step
             for i, (images, labels) in enumerate(tqdm(train_loader)):
