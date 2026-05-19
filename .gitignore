@@ -217,6 +217,14 @@ artifacts/
 # NN models
 *.pth
 *.onnx
+*.har
+*.hef
 
 # ignore platform stats logs
 *.csv
+
+# ignore Python wheels
+*.whl
+
+# ignore deb packages
+*.deb
