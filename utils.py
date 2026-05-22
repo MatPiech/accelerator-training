@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torchvision
 from torchvision.transforms import v2
+import logging
 
 
 LABELS_MAPPING = {
@@ -59,5 +60,27 @@ def get_pred(logits):
 
 
 def output_label(label, dataset_name: str) -> str:
-    input = (label.item() if type(label) == torch.Tensor else label)
-    return LABELS_MAPPING[dataset_name][input]
+    output_idx = (label.item() if type(label) == torch.Tensor else label)
+    return LABELS_MAPPING[dataset_name][output_idx]
+
+
+def setup_logging(level: int = logging.INFO):
+    """Configure root logger."""
+    root = logging.getLogger()
+    # Desired formatter
+    fmt = '[%(asctime)s][%(levelname)s][%(filename)s] %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
+
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
+        root.addHandler(handler)
+    else:
+        for h in root.handlers:
+            try:
+                h.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
+            except Exception:
+                pass
+
+    root.setLevel(level)
+    logging.getLogger('PIL').setLevel(logging.WARNING)
