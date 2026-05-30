@@ -2,6 +2,10 @@
 
 Accelerated on-device training pipeline with inference only edge AI (Hailo) co-processor. Project evaluates and compares the proposed workflow with common-purpose edge AI hardware, such as Raspberry Pi or GPU-based NVIDIA Jetson. Repository covers model preparation, conversion, on-device training, and runtime profiling.
 
+<p align="center">
+	<img src=".images/accelerator_training_flow.png" alt="Accelerator Training Flow" />
+</p>
+
 ## Contents
 
 - [Build](#build)
