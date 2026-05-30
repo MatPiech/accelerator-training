@@ -228,3 +228,6 @@ artifacts/
 
 # ignore deb packages
 *.deb
+
+# ignore generated pdfs
+*.pdf
