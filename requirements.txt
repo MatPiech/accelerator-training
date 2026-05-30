@@ -1,7 +1,0 @@
-click
-timm
-tqdm
-numpy==1.26.4
-onnxruntime-training
-onnxsim
-scipy==1.13.0

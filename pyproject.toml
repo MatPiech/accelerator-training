@@ -1,0 +1,131 @@
+[project]
+name = "accelerator-training"
+version = "0.1.0"
+description = "Accelerated on-device training with edge AI accelerators"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = "Apache-2.0"
+authors = [
+  {name = "Mateusz Piechocki", email = "mateusz.piechocki@put.poznan.pl"},
+]
+keywords = ["python", "onnx", "onnx runtime", "hailo", "on-device training", "accelerators", "model adaptation"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+  "click",
+  "numpy==1.26.4",
+  "tqdm",
+  "torch",
+  "torchvision",
+  "timm",
+  "onnx",
+  "onnxsim",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pre-commit>=3.7",
+  "ruff>=0.6",
+]
+dev = [
+  "accelerator-training[test]",
+  "cycler",
+  "matplotlib",
+]
+rpi = [
+  "psutil",
+]
+jetson = [
+  "psutil",
+  "jetson-stats; platform_machine == 'aarch64'",
+]
+
+[project.urls]
+Repository = "https://github.com/MatPiech/accelerator-training"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["data*", "artifacts*", "notebooks*"]
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "integration: marks tests as integration tests",
+  "unit: marks tests as unit tests",
+]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py312"
+line-length = 127
+indent-width = 4
+
+exclude = [
+  "notebooks/*",
+]
+
+[tool.ruff.lint]
+select = [
+  "E4",
+  "E7",
+  "E9",
+  "F",
+  "W",
+  "I",
+  "N",
+  "UP",
+  "B",
+  "A",
+  "C4",
+  "T20",
+  "SIM",
+  "ARG",
+  "PTH",
+  "RUF",
+]
+ignore = [
+  "E501",
+  "B008",
+  "B904",
+  "ARG002",
+  "T201",
+  "N812",
+  "C419",
+]
+
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["T20", "ARG", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["accelerator_training"]
+force-sort-within-sections = true

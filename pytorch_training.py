@@ -7,59 +7,63 @@ import torch
 from torch import manual_seed
 from tqdm import tqdm
 
-from utils import get_data_loaders, output_label, get_pred, count_parameters, setup_logging
-
+from utils import count_parameters, get_data_loaders, get_pred, output_label, setup_logging
 
 # configure logging with project-wide format
 setup_logging()
 
 
 def get_corrects(logit, target):
-    ''' Obtain number of corrects predictions '''
+    """Obtain number of corrects predictions"""
     corrects = (torch.max(logit, 1)[1].view(target.size()).data == target.data).sum()
     return corrects
 
 
 @click.command()
-@click.option('--model-path', type=click.Path(exists=True, path_type=Path), required=True)
-@click.option('--data-path', type=click.Path(path_type=Path), required=True)
-@click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cpu')
-@click.option('--epochs', type=int, default=1)
-@click.option('--batch-size', type=int, default=1)
+@click.option("--model-path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--data-path", type=click.Path(path_type=Path), required=True)
+@click.option("--device", type=click.Choice(["cpu", "cuda"]), default="cpu")
+@click.option("--epochs", type=int, default=1)
+@click.option("--batch-size", type=int, default=1)
 @click.option("--train", is_flag=True)
 @click.option("--inference-sample", is_flag=True)
-@click.option('--seed', type=int, default=42)
-def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_size: int, train: bool, inference_sample: bool, seed: int):
+@click.option("--seed", type=int, default=42)
+def training(
+    model_path: Path,
+    data_path: Path,
+    device: str,
+    epochs: int,
+    batch_size: int,
+    train: bool,
+    inference_sample: bool,
+    seed: int,
+):
     manual_seed(seed)
 
-    logging.info('Creating dataloaders...')
+    logging.info("Creating dataloaders...")
     train_loader, test_loader = get_data_loaders(data_path, batch_size)
     train_len = train_loader.__len__() * batch_size
     test_len = test_loader.__len__()
 
-    logging.info(f'Creating model with {device} device...')
+    logging.info(f"Creating model with {device} device...")
     model = torch.load(model_path, weights_only=False)
-    if device == 'cuda':
-        device = torch.device('cuda')
-        # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    else:
-        device = torch.device('cpu')
+    device = torch.device("cuda") if device == "cuda" else torch.device("cpu")
     model = model.to(device)
 
-    logging.info(f'Model trainable parameters: {count_parameters(model)}')
+    logging.info(f"Model trainable parameters: {count_parameters(model)}")
 
-    logging.info('Setting criterion...')
+    logging.info("Setting criterion...")
     criterion = torch.nn.CrossEntropyLoss()
 
-    logging.info('Creating optimizer...')
+    logging.info("Creating optimizer...")
     # optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
     optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=0.001)
 
-    training_time = 0.
-    evaluate_time = 0.
+    training_time = 0.0
+    evaluate_time = 0.0
 
     if train:
-        logging.info(f'Starting training loop for {epochs} epochs...')
+        logging.info(f"Starting training loop for {epochs} epochs...")
         for epoch in range(epochs):
             train_running_loss = 0.0
 
@@ -73,8 +77,7 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
             train_start = perf_counter()
             ## training step
-            for i, (images, labels) in enumerate(tqdm(train_loader)):
-
+            for images, labels in tqdm(train_loader):
                 images = images.to(device)
                 labels = labels.to(device)
 
@@ -96,15 +99,19 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
             train_acc = sum(train_corrects) / train_len
 
-            logging.info(' '.join([
-                f'Epoch: {epoch+1} |',
-                f'Loss: {train_running_loss/i:.4f} | Train Accuracy: {train_acc:.4f} |',
-                f'Epoch time: {train_time:.2f}s'
-            ]))
+            logging.info(
+                " ".join(
+                    [
+                        f"Epoch: {epoch+1} |",
+                        f"Loss: {train_running_loss/len(train_loader):.4f} | Train Accuracy: {train_acc:.4f} |",
+                        f"Epoch time: {train_time:.2f}s",
+                    ]
+                )
+            )
 
-        logging.info(f'Training completed in {training_time+evaluate_time:.4f}s')
-        logging.info(f'Average training time per epoch: {training_time / epochs:.4f}s')
-        logging.info(f'Average training time per sample: {training_time / epochs / train_len:.4f}s')
+        logging.info(f"Training completed in {training_time+evaluate_time:.4f}s")
+        logging.info(f"Average training time per epoch: {training_time / epochs:.4f}s")
+        logging.info(f"Average training time per sample: {training_time / epochs / train_len:.4f}s")
 
     model.eval()
 
@@ -113,7 +120,7 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
     eval_start = perf_counter()
     with torch.no_grad():
-        for k, (images, labels) in enumerate(tqdm(test_loader)):
+        for images, labels in tqdm(test_loader):
             images = images.to(device)
             labels = labels.to(device)
 
@@ -127,12 +134,12 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
     test_acc = sum(test_corrects) / test_len
 
-    logging.info(f'Test loss: {test_running_loss/k:.4f} | Test Accuracy: {test_acc:.4f}')
-    logging.info(f'Test time: {evaluate_time:.4f}s')
-    logging.info(f'Average test time per sample: {evaluate_time / test_len:.4f}s')
+    logging.info(f"Test loss: {test_running_loss/len(test_loader):.4f} | Test Accuracy: {test_acc:.4f}")
+    logging.info(f"Test time: {evaluate_time:.4f}s")
+    logging.info(f"Average test time per sample: {evaluate_time / test_len:.4f}s")
 
     if inference_sample:
-        logging.info('Inferencing trained model...')
+        logging.info("Inferencing trained model...")
         # Testing model with one example from test set
         data, label = next(iter(test_loader))
 
@@ -141,9 +148,9 @@ def training(model_path: Path, data_path: Path, device: str, epochs: int, batch_
 
         output = model(data.unsqueeze(0).to(device))
 
-        logging.info(f'Predicted Label : {output_label(get_pred(output.cpu().detach().numpy())[0], data_path.name)}')
-        logging.info(f'GT label: {output_label(label, data_path.name)}')
+        logging.info(f"Predicted Label : {output_label(get_pred(output.cpu().detach().numpy())[0], data_path.name)}")
+        logging.info(f"GT label: {output_label(label, data_path.name)}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     training()
