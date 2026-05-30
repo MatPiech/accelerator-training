@@ -10,7 +10,7 @@ from onnxruntime.training.api import CheckpointState, Module, Optimizer
 from torch import manual_seed
 from tqdm import tqdm
 
-from utils import get_data_loaders, get_pred, output_label, setup_logging
+from accelerator_training.utils import get_data_loaders, get_pred, output_label, setup_logging
 
 # configure logging with project-wide format
 setup_logging()

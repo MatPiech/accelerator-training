@@ -5,10 +5,11 @@ Accelerated on-device training pipeline with inference only edge AI (Hailo) co-p
 ## Contents
 
 - [Build](#build)
-- [Installation](#installation)
+- [Conversion setup](#conversion-setup)
+- [Model conversion](#model-conversion)
+- [Runtime](#runtime)
 	- [Jetson Orin Nano](#jetson-orin-nano)
 	- [CPU-based devices (Raspberry Pi)](#cpu-based-devices-raspberry-pi)
-- [Model conversion](#model-conversion)
 - [On-device training](#on-device-training)
 - [Results](#results)
 
@@ -17,7 +18,7 @@ References:
 - [ONNX opset support](https://onnxruntime.ai/docs/reference/compatibility.html)
 - [ONNX Runtime On-Device Training](https://onnxruntime.ai/docs/api/python/on_device_training/overview.html)
 
-To simplify project reproduction, Python wheels for ONNX Runtime and PyTorch are available at[chmura.put.poznan.pl](https://chmura.put.poznan.pl/s/a5eKo8HkmTKDq3B) or at [project arrtifacts repository in Zenodo service](https://doi.org/10.5281/zenodo.20439109).
+To simplify project reproduction, Python wheels for ONNX Runtime and PyTorch are available at [chmura.put.poznan.pl](https://chmura.put.poznan.pl/s/a5eKo8HkmTKDq3B) or at [project arrtifacts repository in Zenodo service](https://doi.org/10.5281/zenodo.20439109).
 
 ## Build
 
@@ -60,7 +61,7 @@ To simplify project reproduction, Python wheels for ONNX Runtime and PyTorch are
 - [ONNX Runtime with Hailo provider for on-device training](https://github.com/MatPiech/onnxruntime)
 - [Hailo-8 Overview](https://hailo.ai/products/ai-accelerators/hailo-8-ai-accelerator/#hailo8-overview)
 
-## Model conversion
+## Conversion setup
 
 ### Installation steps
 
@@ -84,7 +85,7 @@ pip install onnxruntime_training-1.22.1+hailo*.whl
 
 ## Model conversion
 
-Model conversion relies on the notebooks in `notebooks/` and the helper script `change_model_output_features.py`.
+Model conversion relies on the notebooks in `notebooks/` and the helper script `scripts/change_model_output_features.py`.
 
 - Create a PyTorch model (from PyTorch Image Models - `timm`) and export to ONNX: `notebooks/create_onnx_model.ipynb` (`ort` virtualenv).
 - Convert ONNX for Hailo (quantization/optimization): `notebooks/create_onnx_hailoop_model.ipynb` (`hailo` virtualenv).
@@ -96,11 +97,9 @@ The conversion flow typically produces artifacts under `artifacts/<model_name>/.
 	<img src=".images/conversion_pipeline.png" alt="Model conversion pipeline" />
 </p>
 
-## Runtime
+## Runtime installation
 
-### Installation
-
-#### Jetson Orin Nano
+### Jetson Orin Nano
 
 1. Use Python 3.12 with pip (preferably in a virtualenv).
 2. Install project dependencies:
@@ -115,7 +114,7 @@ pip install -e .[jetson]
 pip install onnxruntime_training-1.22.1+cu12*.whl
 ```
 
-#### CPU-based devices (Raspberry Pi)
+### CPU-based devices (Raspberry Pi)
 
 1. Use Python 3.12 with pip (preferably in a virtualenv).
 2. Install HailoRT and its Python bindings following the instructions at [https://hailo.ai/developer-zone/](https://hailo.ai/developer-zone/).
@@ -131,14 +130,14 @@ pip install -e .[rpi]
 pip install onnxruntime_training-1.22.1+*.whl
 ```
 
-### On-device training
+## On-device training
 
-#### ONNX Runtime training
+### ONNX Runtime training
 
 Run on-device training using ONNX Runtime training APIs:
 
 ```shell
-python onnx_runtime_training.py \
+python scripts/onnx_runtime_training.py \
 	--model-dir <model-dir> \
 	--data-path <dataset-path> \
 	--device <cpu / cuda / hailo> \
@@ -149,12 +148,12 @@ python onnx_runtime_training.py \
 
 Use `--device cuda` on GPU-based Jetson or `--device hailo` with the Hailo provider when available.
 
-#### PyTorch training
+### PyTorch training
 
 For native PyTorch training on CPU or CUDA:
 
 ```shell
-python pytorch_training.py \
+python scripts/pytorch_training.py \
 	--model-path <model-file>.pth \
 	--data-path <dataset-path> \
 	--device <cpu / cuda> \

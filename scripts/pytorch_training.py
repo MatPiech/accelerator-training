@@ -7,7 +7,7 @@ import torch
 from torch import manual_seed
 from tqdm import tqdm
 
-from utils import count_parameters, get_data_loaders, get_pred, output_label, setup_logging
+from accelerator_training.utils import count_parameters, get_data_loaders, get_pred, output_label, setup_logging
 
 # configure logging with project-wide format
 setup_logging()

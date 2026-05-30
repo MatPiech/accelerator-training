@@ -7,7 +7,7 @@ import onnx
 from onnx import numpy_helper
 import torch
 
-from utils import setup_logging
+from accelerator_training.utils import setup_logging
 
 setup_logging(logging.INFO)
 logger = logging.getLogger("change_model_output_features")
