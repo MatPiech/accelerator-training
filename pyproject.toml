@@ -37,6 +37,7 @@ dev = [
   "accelerator-training[test]",
   "cycler",
   "matplotlib",
+  "pandas",
 ]
 rpi = [
   "psutil",

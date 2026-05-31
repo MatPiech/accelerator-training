@@ -1,5 +1,7 @@
 # Accelerated on-device training with edge AI accelerators
 
+<a href="https://doi.org/10.5281/zenodo.20439109"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.20439109.svg" alt="DOI"></a>
+
 Accelerated on-device training pipeline with inference only edge AI (Hailo) co-processor. Project evaluates and compares the proposed workflow with common-purpose edge AI hardware, such as Raspberry Pi or GPU-based NVIDIA Jetson. Repository covers model preparation, conversion, on-device training, and runtime profiling.
 
 <p align="center">
