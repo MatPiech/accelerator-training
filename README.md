@@ -181,3 +181,9 @@ python scripts/pytorch_training.py \
 <p align="center">
 	<img src=".images/quantization_performance_restoration.png" alt="Quantization performance restoration" />
 </p>
+
+> Empirical training throughput on the Oxford-IIIT Pet dataset, measured in images per second, across varying batch sizes (1, 4, and 16).
+
+<p align="center">
+	<img src=".images/throughput_grid.png" alt="Throughput grid" />
+</p>
