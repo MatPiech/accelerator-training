@@ -18,6 +18,7 @@ Accelerated on-device training pipeline with inference only edge AI (Hailo) co-p
 	- [CPU-based devices (Raspberry Pi)](#cpu-based-devices-raspberry-pi)
 - [On-device training](#on-device-training)
 - [Results](#results)
+- [Citation](#citation)
 
 References:
 
@@ -187,3 +188,17 @@ python scripts/pytorch_training.py \
 <p align="center">
 	<img src=".images/throughput_grid.png" alt="Throughput grid" />
 </p>
+
+## Citation
+
+```
+@misc{piechocki2026empoweringondevicemodeladaptation,
+      title={Empowering On-Device Model Adaptation with an Edge AI Inference Accelerator},
+      author={Mateusz Piechocki and Alessandro Capotondi and Marek Kraft},
+      year={2026},
+      eprint={2607.18101},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2607.18101},
+}
+```
